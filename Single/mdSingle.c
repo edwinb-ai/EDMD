@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include "xoshiro256plus.c"
-// #include "mt19937ar.c"
+#include "PseudoRNG/pseudorng.h"
 
 //Maximum number of neighbors per particle
 #define MAXNEIGH 24
@@ -20,9 +19,9 @@
 #endif
 
 
-double maxtime = 100;           //Simulation stops at this time
+double maxtime = 10;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
-double writeinterval = 10;     //Time between output to screen / data file
+double writeinterval = 1;     //Time between output to screen / data file
 double snapshotinterval = 1;  //Time between snapshots (should be a multiple of writeinterval)
 
 int initialconfig = 1;    //= 0 load from file, 1 = FCC crystal
@@ -139,12 +138,11 @@ void printstuff()
 void init()
 {
     int i;
-    // Seed for random number generator
-    unsigned long seed;
-    FILE *fp=fopen("/dev/urandom","r");
-    int tmp = fread(&seed,1,sizeof(unsigned long),fp);
-    if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
-    fclose(fp);
+    unsigned long seed = 1;     //Seed for random number generator
+    //   FILE *fp=fopen("/dev/urandom","r");
+    //   int tmp = fread(&seed,1,sizeof(unsigned long),fp);
+    //   if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
+    //   fclose(fp);
     printf("Seed: %u\n", (int)seed);
     init_genrand(seed);
 
