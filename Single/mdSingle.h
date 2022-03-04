@@ -26,6 +26,8 @@ typedef struct sparticle
 	unsigned char eventtype;
 } particle;
 
+double get_wall_time();
+void arg_parse();
 int main();
 void printstuff();
 void init();
