@@ -13,12 +13,6 @@
 //Number of extra events (e.g. write, thermostat) to allocate space for
 #define EXTRAEVENTS 12
 
-//Pi (if not already defined)
-#ifndef M_PI
-#define M_PI 3.1415926535897932
-#endif
-
-
 double maxtime = 10;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
 double writeinterval = 1;     //Time between output to screen / data file
