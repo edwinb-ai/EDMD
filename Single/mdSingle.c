@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 #include "PseudoRNG/pseudorng.h"
 
 //Maximum number of neighbors per particle
@@ -13,15 +15,15 @@
 //Number of extra events (e.g. write, thermostat) to allocate space for
 #define EXTRAEVENTS 12
 
-double maxtime = 10;           //Simulation stops at this time
+double maxtime;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
-double writeinterval = 1;     //Time between output to screen / data file
+double writeinterval = 100;     //Time between output to screen / data file
 double snapshotinterval = 1;  //Time between snapshots (should be a multiple of writeinterval)
 
-int initialconfig = 1;    //= 0 load from file, 1 = FCC crystal
-char inputfilename[100] = "init.sph"; //File to read as input snapshot (for initialconfig = 0)
-double packfrac = 0.49;                     //Packing fraction (for initialconfig = 1)
-int N = 4000;             //Number of particles (for FCC)
+int initialconfig;    //= 0 load from file, 1 = FCC crystal
+char* inputfilename; //File to read as input snapshot (for initialconfig = 0)
+double packfrac;                     //Packing fraction (for initialconfig = 1)
+int N;             //Number of particles (for FCC)
 
 //Variables related to the event queueing system. These can affect efficiency.
 //The system schedules only events in the current block of time with length "eventlisttime" into a sorted binary search tree. 
@@ -37,9 +39,9 @@ int N = 4000;             //Number of particles (for FCC)
 //Ideally, we set maxscheduletime large enough that the average overflow list size is negligible (i.e. <10 events)
 //Also, there is some optimum value for the number of events per block (scales approximately linearly with "eventlisttime").
 //I seem to get good results with an eventlisttime chosen such that there are a few hundred events per block, and dependence is pretty weak (similar performance in the range of e.g. 5 to 500 events per block...)
-double maxscheduletime = 1.0;
+double maxscheduletime;
 int numeventlists;
-double eventlisttimemultiplier = 1;  //event list time will be this / N
+double eventlisttimemultiplier;  //event list time will be this / N
 double eventlisttime;
 
 
@@ -50,6 +52,7 @@ const double shellsize = 1.5; //Shell size (equals 1+ \alpha)
 //Internal variables
 double simtime = 0;
 double reftime = 0;
+double walltime = 0;
 int currentlist = 0;
 int totalevents;
 
@@ -68,22 +71,82 @@ double dvtot = 0;   //Momentum transfer (for calculating pressure)
 unsigned int colcounter = 0; //Collision counter (will probably overflow in a long run...)
 
 
-const int usethermostat = 1; //Whether to use a thermostat
+int usethermostat; //Whether to use a thermostat
 double thermostatinterval = 0.01;
 
+/**************************************************
+**                 arg_parse
+** Parse values from the command line for easier
+** scripting, and to avoid re-compilations
+**************************************************/
+void arg_parse(int argc, char* argv[]) {
+    int i;
+    char *p;
 
+    for (i = 1; i < argc; i++) {  
+        if (i + 1 != argc) {
+            // For thermostating
+            if (strcmp(argv[i], "-temp") == 0) {                 
+                usethermostat = atoi(argv[i + 1]);
+                i++;    // Move to the next flag
+            }
 
-int main()
+            // Change the packing fraction, eta
+            if (strcmp(argv[i], "-eta") == 0) {                 
+                packfrac = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+
+            // Modify the number of particles
+            if (strcmp(argv[i], "-n") == 0) {                 
+                N = atoi(argv[i + 1]);
+                i++;    // Move to the next flag
+            }
+
+            // Modify the maximum simulation time
+            if (strcmp(argv[i], "-time") == 0) {                 
+                maxtime = atoi(argv[i + 1]);
+                i++;    // Move to the next flag
+            }
+
+            // Whether to initialize as fcc or from file
+            if (strcmp(argv[i], "-init") == 0) {                 
+                initialconfig = atoi(argv[i + 1]);
+                if (!initialconfig){
+                    inputfilename = argv[i + 2];
+                    i++;
+                }
+                i++;
+            }
+
+            // Set the value for the maximum schedule time
+            if (strcmp(argv[i], "-schedule") == 0) {                 
+                maxscheduletime = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+            // Set the value for the event list multiplier
+            if (strcmp(argv[i], "-event") == 0) {                 
+                eventlisttimemultiplier = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+        }
+    }
+}
+
+int main(int argc, char* argv[])
 {
+    arg_parse(argc, argv);
     init();
     printf("Starting\n");
 
-
+    double wall0 = get_wall_time();
     while (simtime <= maxtime)
     {
       step();
     }
     simtime = maxtime;
+    double wall1 = get_wall_time();
+    walltime = wall1 - wall0;
 
     printstuff();
     outputsnapshot();
@@ -119,6 +182,7 @@ void printstuff()
     double pressid = dens;
     double presstot = press + pressid;
     printf("Total time simulated  : %lf\n", simtime);
+    printf("Total wall clock time : %lf\n", walltime);
     //  printf ("Density               : %lf\n", (double) N / volume);
     printf("Packing fraction      : %lf\n", vfilled / volume);
     printf("Measured pressure     : %lf + %lf = %lf\n", press, pressid, presstot);
@@ -132,11 +196,11 @@ void printstuff()
 void init()
 {
     int i;
-    unsigned long seed = 1;     //Seed for random number generator
-    //   FILE *fp=fopen("/dev/urandom","r");
-    //   int tmp = fread(&seed,1,sizeof(unsigned long),fp);
-    //   if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
-    //   fclose(fp);
+    unsigned long seed;     //Seed for random number generator
+    FILE *fp=fopen("/dev/urandom","r");
+    int tmp = fread(&seed,1,sizeof(unsigned long),fp);
+    if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
+    fclose(fp);
     printf("Seed: %u\n", (int)seed);
     init_genrand(seed);
 
@@ -234,7 +298,7 @@ void fcc()
 
     printf("step: %lf\n", step);
     initparticles(N);
-    printf("Placing particles\n");
+    printf("Placing %d particles\n", N);
 
     p = particles;
     for (i = 0; i < ncell; i++) for (j = 0; j < ncell; j++) for (k = 0; k < ncell; k++)
@@ -1098,7 +1162,8 @@ void write(particle* writeevent)
     }
 
     //Print some data to a file
-    sprintf(filename, "press.n%d.v%.4lf.sph", N, xsize * ysize * zsize);
+    // sprintf(filename, "press.n%d.v%.4lf.sph", N, xsize * ysize * zsize);
+    sprintf(filename, "press_n=%d_eta=%f.sph", N, packfrac);
     if (counter == 0) file = fopen(filename, "w");
     else              file = fopen(filename, "a");
     fprintf(file, "%lf %lf\n", simtime, pressnow);
@@ -1191,3 +1256,11 @@ double random_gaussian()
 }
 
 
+double get_wall_time(){
+    struct timeval time;
+    if (gettimeofday(&time,NULL)){
+        //  Handle error
+        return 0;
+    }
+    return (double)time.tv_sec + (double)time.tv_usec * 0.000001;
+}
