@@ -9,5 +9,5 @@ CFLAGS=-Wall -Ofast -funroll-loops -march=native
 LIBS=-lm
 
 
-md: mdSingle.c  mdSingle.h
+md: mdSingle.c mdSingle.h xoshiro256plus.c splitmix64.c
 	$(CC) $(CFLAGS) mdSingle.c -o md  $(LIBS)

@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include "mt19937ar.c"
+#include "xoshiro256plus.c"
+// #include "mt19937ar.c"
 
 //Maximum number of neighbors per particle
 #define MAXNEIGH 24
@@ -21,10 +22,10 @@
 
 double maxtime = 100;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
-double writeinterval = 1;     //Time between output to screen / data file
+double writeinterval = 10;     //Time between output to screen / data file
 double snapshotinterval = 1;  //Time between snapshots (should be a multiple of writeinterval)
 
-int initialconfig = 0;    //= 0 load from file, 1 = FCC crystal
+int initialconfig = 1;    //= 0 load from file, 1 = FCC crystal
 char inputfilename[100] = "init.sph"; //File to read as input snapshot (for initialconfig = 0)
 double packfrac = 0.25;                     //Packing fraction (for initialconfig = 1)
 int N = 4000;             //Number of particles (for FCC)
@@ -138,11 +139,12 @@ void printstuff()
 void init()
 {
     int i;
-    unsigned long seed = 1;     //Seed for random number generator
-    //   FILE *fp=fopen("/dev/urandom","r");
-    //   int tmp = fread(&seed,1,sizeof(unsigned long),fp);
-    //   if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
-    //   fclose(fp);
+    // Seed for random number generator
+    unsigned long seed;
+    FILE *fp=fopen("/dev/urandom","r");
+    int tmp = fread(&seed,1,sizeof(unsigned long),fp);
+    if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
+    fclose(fp);
     printf("Seed: %u\n", (int)seed);
     init_genrand(seed);
 
