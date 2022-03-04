@@ -7,7 +7,6 @@ worldwide. This software is distributed without any warranty.
 See <http://creativecommons.org/publicdomain/zero/1.0/>. */
 
 #include <stdint.h>
-#include "splitmix64.c"
 
 /* This is xoshiro256+ 1.0, our best and fastest generator for floating-point
    numbers. We suggest to use its upper bits for floating-point
@@ -59,7 +58,7 @@ uint64_t next(void) {
 /* generates a random number on [0,1)-real-interval */
 double genrand_real2(void)
 {
-    return next()/pow(2.0, 64); 
+    return next() / (18446744073709551616.0); 
 }
 
 

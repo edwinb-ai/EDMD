@@ -1,0 +1,1 @@
+add_library(PseudoRNG xoshiro256plus.c splitmix64.c)
