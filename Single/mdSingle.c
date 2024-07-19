@@ -833,7 +833,7 @@ void collision(particle* p1)
     p2->vy += dv2 * dy;
     p2->vz += dv2 * dz;
 
-    dvtot += b * r;
+    dvtot += dv1*m1 * r;
     colcounter++;
 
     removeevent(p2);
@@ -1214,6 +1214,7 @@ void thermostat(particle* thermostatevent)
         p->vx = random_gaussian() * imsq;			//Kick it
         p->vy = random_gaussian() * imsq;
         p->vz = random_gaussian() * imsq;
+        p->counter ++;
         removeevent(p);
         findcollisions(p);
     }
