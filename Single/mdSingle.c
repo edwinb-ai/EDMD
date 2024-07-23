@@ -18,7 +18,7 @@
 double maxtime;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
 double writeinterval = 100;     //Time between output to screen / data file
-double snapshotinterval = 1;  //Time between snapshots (should be a multiple of writeinterval)
+double snapshotinterval = 10;  //Time between snapshots (should be a multiple of writeinterval)
 
 int initialconfig;    //= 0 load from file, 1 = FCC crystal
 char* inputfilename; //File to read as input snapshot (for initialconfig = 0)
@@ -48,6 +48,19 @@ double eventlisttime;
 //Neighbor lists
 const double shellsize = 1.5; //Shell size (equals 1+ \alpha)
 
+//Options for making snapshots on a logarithmic time scale
+//This makes a number of batches of snapshots over the course of the simulations, 
+//   where the time between snapshots grows exponentially.
+//Useful for calculating e.g. F(q,t).
+#define MAXLOGSNAPSHOTS 10000
+int makelogsnapshots = 0;       //Toggle on or off
+logsnaptime logsnapshottimes[MAXLOGSNAPSHOTS];
+int nextlogsnapshot;
+int numsnapshots = 50;		    //Number of snapshots per batch
+int numbatches = 10;			//Number of batches
+double minimumtime = 0.01;		//Time difference between the first two snapshots
+particle* logsnapshotevent;
+particle* writeevent;   //Pointer to event keeping track of next write to screen/disk
 
 //Internal variables
 double simtime = 0;
@@ -55,6 +68,9 @@ double reftime = 0;
 double walltime = 0;
 int currentlist = 0;
 int totalevents;
+double timeoffset = 0; //Offset between actual time and internal time
+double resetinterval = 10000; //Interval after which the internal clock is reset
+particle* resetevent;  //Event keeping track of resetting
 
 int listcounter1 = 0, listcounter2 = 0, mergecounter = 0;
 
@@ -69,7 +85,6 @@ double icxsize, icysize, iczsize; //Cell size
 int    cx, cy, cz;  //Number of cells
 double dvtot = 0;   //Momentum transfer (for calculating pressure)
 unsigned int colcounter = 0; //Collision counter (will probably overflow in a long run...)
-
 
 int usethermostat; //Whether to use a thermostat
 double thermostatinterval = 0.01;
@@ -127,6 +142,12 @@ void arg_parse(int argc, char* argv[]) {
             // Set the value for the event list multiplier
             if (strcmp(argv[i], "-event") == 0) {                 
                 eventlisttimemultiplier = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+
+            // Set the flag for making logarithmic snapshots
+            if (strcmp(argv[i], "-logsnapshots") == 0) {                 
+                makelogsnapshots = strtod(argv[i + 1], &p);
                 i++;    // Move to the next flag
             }
         }
@@ -232,7 +253,8 @@ void init()
     }
     printf("Done adding collisions\n");
 
-
+    //Initialize logarithmic snapshots (if enabled)
+    if (makelogsnapshots) initlogsnapshots();
 
 }
 
@@ -537,6 +559,10 @@ void step()
     }
 
     while (ev->left) ev = ev->left;		//Find first event
+    // if (ev->eventtime < simtime)
+    // {
+    //     printf ("Negative time\n");
+    // }
 
     simtime = ev->eventtime;
     removeevent(ev);
@@ -548,11 +574,17 @@ void step()
         case 8:
             makeneighborlist(ev);
             break;
+        case 50:
+            resettime();
+            break;
         case 100:
             write(ev);
             break;
         case 101:
             thermostat(ev);
+            break;
+        case 102:
+            writelogsnapshot();
             break;
     }
 }
@@ -891,6 +923,17 @@ void initevents()
         printf("Started thermostat\n");
     }
 
+    logsnapshotevent = particles + N + 4;
+    logsnapshotevent->eventtype = 102;
+    logsnapshotevent->p2 = NULL;
+    //(First logsnap-event gets added in initlogsnapshots())
+
+    resetevent = particles + N + 3;
+    resetevent->eventtype = 50;
+    resetevent->p2 = NULL;
+    resetevent->eventtime = resetinterval;
+    addevent(resetevent);
+
 }
 
 /**************************************************
@@ -1145,7 +1188,8 @@ void write(particle* writeevent)
         sprintf(filename, "mov.n%d.v%.4lf.sph", N, xsize * ysize * zsize);
         if (first) { first = 0;  file = fopen(filename, "w"); }
         else                     file = fopen(filename, "a");
-        fprintf(file, "%d\n%.12lf %.12lf %.12lf\n", (int)N, xsize, ysize, zsize);
+        fprintf(file, "%d\nLattice=\"%.12lf 0.0 0.0 0.0 %.12lf 0.0 0.0 0.0 %.12lf\"\n", 
+            (int)N, xsize, ysize, zsize);
         for (i = 0; i < N; i++)
         {
             p = &(particles[i]);
@@ -1199,21 +1243,56 @@ void backinbox(particle* p)
 ** periodically, giving them a new velocity from
 ** the Maxwell-Boltzmann distribution
 **************************************************/
+// void thermostat(particle* thermostatevent)
+// {
+//     int i, num;
+//     particle* p;
+//     int freq = N / 100;
+//     if (freq == 0) freq = 1;
+//     for (i = 0; i < freq; i++)
+//     {
+//         num = genrand_real2() * N;			//Random particle
+//         p = particles + num;
+//         double imsq = 1.0 / sqrt(p->mass);
+//         update(p);
+//         p->vx = random_gaussian() * imsq;			//Kick it
+//         p->vy = random_gaussian() * imsq;
+//         p->vz = random_gaussian() * imsq;
+//         p->counter ++;
+//         removeevent(p);
+//         findcollisions(p);
+//     }
+//     //Schedule next thermostat event
+//     thermostatevent->eventtime = simtime + thermostatinterval;
+//     addevent(thermostatevent);
+// }
+
 void thermostat(particle* thermostatevent)
 {
     int i, num;
     particle* p;
-    int freq = N / 100;
-    if (freq == 0) freq = 1;
-    for (i = 0; i < freq; i++)
-    {
-        num = genrand_real2() * N;			//Random particle
-        p = particles + num;
-        double imsq = 1.0 / sqrt(p->mass);
+    double alfainit = 1.0 / sqrt(2.0);
+    double alfa = 1.0;
+    double beta = 0.0;
+    double nu = 10.0;
+    double brownian_step = 0.01;
+    double freq = nu * brownian_step;
+    double imsq = 0.0;
+
+    for (i = 0; i < N; i++) {
+        p = &(particles[i]);
         update(p);
-        p->vx = random_gaussian() * imsq;			//Kick it
-        p->vy = random_gaussian() * imsq;
-        p->vz = random_gaussian() * imsq;
+        if (genrand_real2() < freq) {
+            alfa = alfainit;
+        }
+        else {
+            alfa = 1.0;
+        }
+        imsq = 1.0 / sqrt(p->mass);
+        beta = sqrt(1.0 - alfa*alfa);
+        p->vx = (alfa * p->vx) + (random_gaussian() * imsq * beta);
+        p->vy = (alfa * p->vy) + (random_gaussian() * imsq * beta);
+        p->vz = (alfa * p->vz) + (random_gaussian() * imsq * beta);
         p->counter ++;
         removeevent(p);
         findcollisions(p);
@@ -1264,4 +1343,160 @@ double get_wall_time(){
         return 0;
     }
     return (double)time.tv_sec + (double)time.tv_usec * 0.000001;
+}
+
+/**************************************************
+**                COMPARE
+** For sorting logarithmic snapshot times
+**************************************************/
+int compare (const void * a, const void * b)
+{
+    double d = ((logsnaptime*)a)->t - ((logsnaptime*)b)->t;
+
+    return ( (0<d) - (d<0) );
+}
+
+/**************************************************
+**                INITLOGSNAPSHOTS
+**************************************************/
+void initlogsnapshots()
+{
+  double shifttime = maxtime / numbatches;
+  int i,j, counter= 0;
+  int numshifts = maxtime / shifttime;
+  double fac = pow(maxtime/minimumtime, 1.0/numsnapshots);
+  double t,dt;
+  for (i = 0; i < numshifts; i++)
+  {
+        if (counter == MAXLOGSNAPSHOTS - 1)
+        {
+            printf ("Warning: trying to make too many snapshots (reduce the number of snapshots to make, or increase MAXLOGSNAPSHOTS). (%d, %d, %d)\n",
+                numshifts, numsnapshots, (int)MAXLOGSNAPSHOTS);
+            break;
+        }
+        dt = minimumtime;
+        for (j = 0; j <= numsnapshots; j++)
+        {
+            if (counter == MAXLOGSNAPSHOTS) break;
+            if (j == 0)
+            {
+                t = i*shifttime;
+            }
+            else
+            {
+                t = i * shifttime + dt;
+                dt*=fac;
+            }
+            if (t < maxtime)
+            {
+                logsnapshottimes[counter].t = t;
+                logsnapshottimes[counter].batch = i;
+                logsnapshottimes[counter].index = j;
+                counter++;
+            }
+        }
+  }
+
+
+
+  qsort(logsnapshottimes, counter, sizeof(logsnaptime), compare);
+  logsnapshottimes[counter].t   = maxtime - 0.000000000001;		//Last snapshot
+  logsnapshottimes[counter].batch = i;		//Last snapshot
+  logsnapshottimes[counter].index = 0;
+  logsnapshottimes[counter+1].t = maxtime +1;			//Just to make sure that the next snapshot won't happen
+  logsnapshottimes[counter+1].batch = i;		//Last snapshot
+  logsnapshottimes[counter+1].index = 0;
+
+  nextlogsnapshot = 0;
+  logsnapshotevent->eventtime = logsnapshottimes[nextlogsnapshot].t;
+  addevent(logsnapshotevent);
+
+
+//   for (i = 0; i < counter; i++)
+//   {
+//     printf ("%d   %lf\n", i, logsnapshottimes[i]);
+//   }
+//   exit(3);
+
+}
+
+
+/**************************************************
+**                    WRITELOGSNAPSHOT
+** Writes a snapshot
+**************************************************/
+void writelogsnapshot()
+{
+  int batch = logsnapshottimes[nextlogsnapshot].batch;
+  int index = logsnapshottimes[nextlogsnapshot].index;
+  particle* p;
+  int i;
+  FILE* file;
+  char filename[200];
+  sprintf (filename, "logsnap.b%03d.s%05d", batch, index);
+  file = fopen (filename, "w");
+  if (!file)
+  {
+    printf ("Failed to open file %s\n", filename);
+    return;
+  }
+  fprintf (file, "%d\n%lf %lf %lf    Time: %lf\n", 
+    (int) N, xsize, ysize, zsize, simtime+timeoffset);
+  for ( i = 0; i < N; i++)
+  {
+    p = &(particles[i]);
+    update(p);
+    fprintf(file, "%c %.12lf  %.12lf  %.12lf  %lf\n", 'a' + p->type,   p->x + xsize * p->boxestraveledx,  p->y + ysize * p->boxestraveledy,  p->z + zsize * p->boxestraveledz, p->radius);
+  }
+  fclose(file);
+  nextlogsnapshot++;
+  logsnapshotevent->eventtime = logsnapshottimes[nextlogsnapshot].t - timeoffset;
+  addevent (logsnapshotevent);     //Add next write interval
+
+}
+
+
+/**************************************************
+**                     RESETTIME
+** Resets simulation time to zero for additional
+** precision.
+**************************************************/
+void resettime() {
+    int i;
+    particle* p;
+
+    for (i = 0; i < N; i++)     //Adjust time for all particles
+    {
+        p = particles + i;
+        update(p);
+        removeevent(p);
+        p->t = 0;
+        p->counter = 0;
+        p->counter2 = 0;
+    }
+    simtime = 0;
+    timeoffset += resetinterval;        //Keep track of the total offset
+    removeevent(writeevent);                //Fix the write event timing
+    if (makelogsnapshots) removeevent(logsnapshotevent);
+
+    reftime = 0;
+    currentlist = 0;
+
+    for (i = 0; i < N; i++)
+    {
+        makeneighborlist(particles + i);        //This also reschedules all events
+    }
+
+    writeevent->eventtime -= resetinterval;
+    addevent(writeevent);
+
+    if(makelogsnapshots)
+    {
+        logsnapshotevent->eventtime -= resetinterval;
+        addevent(logsnapshotevent);
+    }
+
+    //Schedule next reset event    
+    resetevent->eventtime = resetinterval;
+    addevent(resetevent);
 }

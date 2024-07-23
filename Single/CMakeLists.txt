@@ -5,6 +5,7 @@ project(edmd C)
 
 # Compiler flags
 SET(GCC_COMPILE_FLAGS "-Wall -Ofast -funroll-loops -march=native")
+# SET(GCC_COMPILE_FLAGS "-Wall -g")
 string(APPEND CMAKE_C_FLAGSE "${GCC_COMPILE_FLAGS}")
 # Library directory
 add_subdirectory(PseudoRNG)

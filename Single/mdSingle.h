@@ -26,9 +26,15 @@ typedef struct sparticle
 	unsigned char eventtype;
 } particle;
 
+typedef struct slogsnaptime {
+  double t;
+  int batch;
+  int index;
+} logsnaptime;
+
 double get_wall_time();
-void arg_parse();
-int main();
+void arg_parse(int argc, char* argv[]);
+int main(int argc, char* argv[]);
 void printstuff();
 void init();
 
@@ -59,3 +65,7 @@ void write(particle* ev);
 void thermostat(particle* ev);
 double random_gaussian();
 void backinbox(particle* p);
+
+void resettime();
+void initlogsnapshots();
+void writelogsnapshot();
