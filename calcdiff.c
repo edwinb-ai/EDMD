@@ -3,9 +3,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#define MAXN 5000
+#define MAXN 4000
 #define MAXBATCH 10
-#define MAXFILES 600
+#define SNAPS 40
+#define MAXFILES MAXBATCH*SNAPS
 
 #define tprintf \
   if (test)     \
@@ -110,13 +111,13 @@ int main(int argc, char *argv[])
 
   for (i = 0; i < MAXBATCH; i++)
   {
-    for (j = 0; j < MAXFILES; j++)
+    for (j = 0; j < numfiles; j++)
     {
       r2s[i][j] = 0;
     }
   }
 
-  for (j = 0; j < MAXFILES; j++) {
+  for (j = 0; j < numfiles; j++) {
     times[j] = 0.0;
   }
 
@@ -177,7 +178,6 @@ int main(int argc, char *argv[])
       {
         mygetline(buffer, f);
         char letter;
-        int nsides;
         double rad;
         tmp = sscanf(buffer, "%c %lf %lf %lf %lf",
           &letter, &(startconf[b][j][0]), &(startconf[b][j][1]),
@@ -201,6 +201,11 @@ int main(int argc, char *argv[])
     double r2 = 0.0;
 
     f = fopen(inputfile, "r");
+    printf("%s\n", inputfile);
+    if (!f) {
+      perror("fopen failed");
+      return 1;
+    }
     tmp = fscanf(f, "%d\n", &npart);
     if (tmp != 1)
     {

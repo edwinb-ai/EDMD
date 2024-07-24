@@ -17,7 +17,7 @@
 
 double maxtime;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
-double writeinterval = 100;     //Time between output to screen / data file
+double writeinterval = 10;     //Time between output to screen / data file
 double snapshotinterval = 10;  //Time between snapshots (should be a multiple of writeinterval)
 
 int initialconfig;    //= 0 load from file, 1 = FCC crystal
@@ -56,7 +56,7 @@ const double shellsize = 1.5; //Shell size (equals 1+ \alpha)
 int makelogsnapshots = 0;       //Toggle on or off
 logsnaptime logsnapshottimes[MAXLOGSNAPSHOTS];
 int nextlogsnapshot;
-int numsnapshots = 50;		    //Number of snapshots per batch
+int numsnapshots = 40;		    //Number of snapshots per batch
 int numbatches = 10;			//Number of batches
 double minimumtime = 0.01;		//Time difference between the first two snapshots
 particle* logsnapshotevent;
@@ -1247,12 +1247,10 @@ void backinbox(particle* p)
 // {
 //     int i, num;
 //     particle* p;
-//     int freq = N / 100;
-//     if (freq == 0) freq = 1;
-//     for (i = 0; i < freq; i++)
+
+//     for (i = 0; i < N; i++)
 //     {
-//         num = genrand_real2() * N;			//Random particle
-//         p = particles + num;
+//         p = &(particles[i]);
 //         double imsq = 1.0 / sqrt(p->mass);
 //         update(p);
 //         p->vx = random_gaussian() * imsq;			//Kick it
@@ -1272,16 +1270,17 @@ void thermostat(particle* thermostatevent)
     int i, num;
     particle* p;
     double alfainit = 1.0 / sqrt(2.0);
+    // double alfainit = 1.0;
     double alfa = 1.0;
     double beta = 0.0;
     double nu = 10.0;
     double brownian_step = 0.01;
     double freq = nu * brownian_step;
+    // double freq = 1.0;
     double imsq = 0.0;
 
     for (i = 0; i < N; i++) {
         p = &(particles[i]);
-        update(p);
         if (genrand_real2() < freq) {
             alfa = alfainit;
         }
@@ -1289,6 +1288,7 @@ void thermostat(particle* thermostatevent)
             alfa = 1.0;
         }
         imsq = 1.0 / sqrt(p->mass);
+        update(p);
         beta = sqrt(1.0 - alfa*alfa);
         p->vx = (alfa * p->vx) + (random_gaussian() * imsq * beta);
         p->vy = (alfa * p->vy) + (random_gaussian() * imsq * beta);
