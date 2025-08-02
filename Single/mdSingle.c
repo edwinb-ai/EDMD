@@ -39,9 +39,9 @@ int N;             //Number of particles (for FCC)
 //Ideally, we set maxscheduletime large enough that the average overflow list size is negligible (i.e. <10 events)
 //Also, there is some optimum value for the number of events per block (scales approximately linearly with "eventlisttime").
 //I seem to get good results with an eventlisttime chosen such that there are a few hundred events per block, and dependence is pretty weak (similar performance in the range of e.g. 5 to 500 events per block...)
-double maxscheduletime;
+double maxscheduletime = 1.0;
 int numeventlists;
-double eventlisttimemultiplier;  //event list time will be this / N
+double eventlisttimemultiplier = 1.0;  //event list time will be this / N
 double eventlisttime;
 
 
@@ -117,17 +117,6 @@ void arg_parse(int argc, char* argv[]) {
                     i++;
                 }
                 i++;
-            }
-
-            // Set the value for the maximum schedule time
-            if (strcmp(argv[i], "-schedule") == 0) {                 
-                maxscheduletime = strtod(argv[i + 1], &p);
-                i++;    // Move to the next flag
-            }
-            // Set the value for the event list multiplier
-            if (strcmp(argv[i], "-event") == 0) {                 
-                eventlisttimemultiplier = strtod(argv[i + 1], &p);
-                i++;    // Move to the next flag
             }
         }
     }
