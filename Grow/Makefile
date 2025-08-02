@@ -2,7 +2,7 @@
 CC=gcc
 
 # define any compile-time flags
-CFLAGS=-Wall -Ofast -funroll-loops -march=native
+CFLAGS=-Wall -O3 -funroll-loops -march=native
 
 
 # define any libraries to link into executable:

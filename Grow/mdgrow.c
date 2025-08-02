@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define MAXNEIGH 24
+#define MAXNEIGH 60
 
 #include "mt19937ar.c"
 #include "mdgrow.h"
@@ -24,13 +24,13 @@
 //The code is set up for binary mixtures. The parameters below control the number of particles, size ratio, composition, target packing fraction, etc.
 
 //Number of particles:
-#define N 100000
+#define N 1200
 
 
-double targetpackfrac = 0.5; //Target packing fraction (if too high, simulation will not finish or crash)  
-double composition = 1.0;     //Fraction of large particles
-double sizeratio = 0.85;      //small diameter / large diameter (must be <= 1)
-double growthspeed = 0.1;     //Factor determining growth speed (slower growth means higher packing fractions can be reached)
+double targetpackfrac = 0.6; //Target packing fraction (if too high, simulation will not finish or crash)  
+double composition = 1.0 / 3.0;     //Fraction of large particles
+double sizeratio = 0.51;      //small diameter / large diameter (must be <= 1)
+double growthspeed = 0.01;     //Factor determining growth speed (slower growth means higher packing fractions can be reached)
 double thermostatinterval = 0.001;  //Time between applications of thermostat, which gets rid of excess heat generated while growing
 
 int makesnapshots = 0;        //Whether to make snapshots during the run (yes = 1, no = 0)

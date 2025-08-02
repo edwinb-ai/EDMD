@@ -8,7 +8,7 @@
 #include "PseudoRNG/pseudorng.h"
 
 //Maximum number of neighbors per particle
-#define MAXNEIGH 24
+#define MAXNEIGH 60
 
 #include "mdSingle.h"
 
@@ -17,7 +17,7 @@
 
 double maxtime;           //Simulation stops at this time
 int makesnapshots = 0;          //Whether to make snapshots during the run (yes = 1, no = 0)
-double writeinterval = 100;     //Time between output to screen / data file
+double writeinterval = 10000;     //Time between output to screen / data file
 double snapshotinterval = 1;  //Time between snapshots (should be a multiple of writeinterval)
 
 int initialconfig;    //= 0 load from file, 1 = FCC crystal
@@ -1086,6 +1086,27 @@ void outputsnapshot(void)
     }
     fclose(file);
 
+    // Also save OVITO-friendly configuration
+    sprintf(filename, "final.xyz");
+    file = fopen(filename, "w");
+    // First line is the number of particles
+    fprintf(file, "%d\n", (int)N);
+    // Then it is the configuration of the file
+    fprintf(file, "Lattice=\"%.12lf 0 0 0 %.12lf 0 0 0 %.12lf\" Properties=species:S:1:pos:R:3:radius:R:1\n",
+        xsize, ysize, zsize);
+    for (i = 0; i < N; i++)
+    {
+        p = &(particles[i]);
+        double dt = simtime - p->t;
+        p->x += p->vx * dt;
+        p->y += p->vy * dt;
+        p->z += p->vz * dt;
+        p->t = simtime;
+
+
+        fprintf(file, "%c %.12lf  %.12lf  %.12lf  %lf\n", 'a' + p->type, p->x + xsize * p->boxestraveledx, p->y + ysize * p->boxestraveledy, p->z + zsize * p->boxestraveledz, p->radius);
+    }
+    fclose(file);
 }
 
 

@@ -2,6 +2,7 @@
 clean
 .vscode/
 *.sph
+*.xyz
 press.*
 md
 build/
