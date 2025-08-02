@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
 **                 PRINTSTUFF
 ** Some data at the end of the simulation
 **************************************************/
-void printstuff()
+void printstuff(void)
 {
     int i;
     particle* p;
@@ -193,7 +193,7 @@ void printstuff()
 /**************************************************
 **                    INIT
  **************************************************/
-void init()
+void init(void)
 {
     int i;
     unsigned long seed;     //Seed for random number generator
@@ -276,7 +276,7 @@ int mygetline(char* str, FILE* f)
 ** Initialize system on a face-centered cubic
 ** lattice
 **************************************************/
-void fcc()
+void fcc(void)
 {
     int i, j, k;
     particle* p;
@@ -347,7 +347,7 @@ void fcc()
 ** - 3 coordinates (x, y, z)
 ** - The radius
 **************************************************/
-void loadparticles()
+void loadparticles(void)
 {
     char tmp;
     int i, npart;
@@ -394,7 +394,7 @@ void loadparticles()
 ** Center-of-mass velocity = 0
 ** Kinetic energy per particle = 3kT/2
 **************************************************/
-void randommovement()
+void randommovement(void)
 {
     particle* p;
     double v2tot = 0, vxtot = 0, vytot = 0, vztot = 0;
@@ -456,7 +456,7 @@ void update(particle* p1)
 **    shellsize * [diameter of largest sphere]
 ** Can use larger cells at low densities
 **************************************************/
-void initcelllist()
+void initcelllist(void)
 {
     int i;
     cx = (int)(xsize - 0.0001) / shellsize;				//Set number of cells
@@ -526,7 +526,7 @@ void removefromcelllist(particle* p1)
 **                     STEP
 ** Process a single event
 **************************************************/
-void step()
+void step(void)
 {
     particle* ev;
     ev = root->right;
@@ -751,7 +751,7 @@ void findcollisions(particle* p1)    //All collisions of particle p1
 **                FINDALLCOLLISION
 ** All collisions of all particle pairs
 **************************************************/
-void findallcollisions()       //All collisions of all particle pairs
+void findallcollisions(void)       //All collisions of all particle pairs
 {
     int i, j;
     for (i = 0; i < N; i++)
@@ -850,7 +850,7 @@ void collision(particle* p1)
 /**************************************************
 **                 INITEVENTS
 **************************************************/
-void initevents()
+void initevents(void)
 {
     eventlisttime = eventlisttimemultiplier / N;
     numeventlists = ceil(maxscheduletime / eventlisttime);
@@ -976,7 +976,7 @@ void createevent(double time, particle* p1, particle* p2, int type)
 ** Sort all events from the first event list 
 ** into the binary tree.
 **************************************************/
-void addnexteventlist()
+void addnexteventlist(void)
 {
     currentlist++;
     reftime += eventlisttime;
@@ -1075,7 +1075,7 @@ void removeevent(particle* oldevent)
 **                  OUTPUTSNAPSHOT
 ** Write a final snapshot to disk
 **************************************************/
-void outputsnapshot()
+void outputsnapshot(void)
 {
     char filename[200];
     sprintf(filename, "snapshot_end.sph");
@@ -1232,7 +1232,7 @@ void thermostat(particle* thermostatevent)
 ** Generates a random number from a
 ** Gaussian distribution (Box–Muller)
 **************************************************/
-double random_gaussian()
+double random_gaussian(void)
 {
     static int have_deviate = 0;
     static double u1, u2;
@@ -1260,7 +1260,7 @@ double random_gaussian()
 }
 
 
-double get_wall_time(){
+double get_wall_time(void) {
     struct timeval time;
     if (gettimeofday(&time,NULL)){
         //  Handle error

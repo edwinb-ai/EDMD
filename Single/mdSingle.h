@@ -26,36 +26,36 @@ typedef struct sparticle
 	unsigned char eventtype;
 } particle;
 
-double get_wall_time();
-void arg_parse();
-int main();
-void printstuff();
-void init();
+double get_wall_time(void);
+void arg_parse(int argc, char* argv[]);
+int main(int argc, char* argv[]);
+void printstuff(void);
+void init(void);
 
 
-void initevents();
-void fcc();
-void loadparticles();
-void randommovement();
-void initcelllist();
+void initevents(void);
+void fcc(void);
+void loadparticles(void);
+void randommovement(void);
+void initcelllist(void);
 void addtocelllist(particle* p, int cellx, int celly, int cellz);
 int celloffset(int a, int b, int c);
 
-void step();
+void step(void);
 int findcollision(particle*, particle*, double*);
-void findallcollisions();
+void findallcollisions(void);
 void findcollisions(particle*);
 void collision(particle*);
 
 void addevent(particle*);
 void removeevent(particle*);
 void createevent(double time, particle* p1, particle* p2, int type);
-void addnexteventlist();
+void addnexteventlist(void);
 double findneighborlistupdate(particle* p1);
 void makeneighborlist(particle* p1);
 
-void outputsnapshot();
+void outputsnapshot(void);
 void write(particle* ev);
 void thermostat(particle* ev);
-double random_gaussian();
+double random_gaussian(void);
 void backinbox(particle* p);
