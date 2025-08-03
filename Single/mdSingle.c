@@ -67,7 +67,7 @@ double xsize, ysize, zsize; //Box size
 double hx, hy, hz; //Half box size
 double icxsize, icysize, iczsize; //Cell size
 int    cx, cy, cz;  //Number of cells
-double dvtot = 0;   //Momentum transfer (for calculating pressure)
+double dvtotx = 0, dvtoty = 0, dvtotz = 0;   //Momentum transfer components for pressure tensor (Pxx, Pyy, Pzz)
 unsigned int colcounter = 0; //Collision counter (will probably overflow in a long run...)
 
 
@@ -167,14 +167,20 @@ void printstuff(void)
     printf("Average kinetic energy: %lf\n", 0.5 * v2tot / N);
     double volume = xsize * ysize * zsize;
     double dens = N / volume;
-    double press = -dvtot / (3.0 * volume * simtime);
+    double pressxx = -dvtotx / (volume * simtime);
+    double pressyy = -dvtoty / (volume * simtime);
+    double presszz = -dvtotz / (volume * simtime);
     double pressid = dens;
-    double presstot = press + pressid;
+    double presstotxx = pressxx + pressid;
+    double presstotyy = pressyy + pressid;
+    double presstotzz = presszz + pressid;
+    double press_avg = (presstotxx + presstotyy + presstotzz) / 3.0;
     printf("Total time simulated  : %lf\n", simtime);
     printf("Total wall clock time : %lf\n", walltime);
     //  printf ("Density               : %lf\n", (double) N / volume);
     printf("Packing fraction      : %lf\n", vfilled / volume);
-    printf("Measured pressure     : %lf + %lf = %lf\n", press, pressid, presstot);
+    printf("Measured pressure tensor: Pxx=%lf, Pyy=%lf, Pzz=%lf\n", presstotxx, presstotyy, presstotzz);
+    printf("Average pressure      : %lf\n", press_avg);
 
 }
 
@@ -827,7 +833,14 @@ void collision(particle* p1)
     p2->vy += dv2 * dy;
     p2->vz += dv2 * dz;
 
-    dvtot += dv1*m1 * r;
+    // Calculate virial tensor components for pressure tensor
+    // P_αβ = ρkT δ_αβ + (1/V) Σ_ij r_ij^α F_ij^β
+    // For hard spheres: F_ij^β = -δp_i^β / δt = momentum_transfer * n_ij^β
+    // where n_ij is the unit vector from particle i to j at contact
+    double virial_factor = dv1 * m1 * r;
+    dvtotx += virial_factor * dx * dx;  // xx component
+    dvtoty += virial_factor * dy * dy;  // yy component  
+    dvtotz += virial_factor * dz * dz;  // zz component
     colcounter++;
 
     removeevent(p2);
@@ -1125,7 +1138,7 @@ void write(particle* writeevent)
     static int counter = 0;
     static int first = 1;
     static double lastsnapshottime = -999999999.9;
-    static double dvtotlast = 0;
+    static double dvtotxlast = 0, dvtotylast = 0, dvtotzlast = 0;
     static double timelast = 0;   
     int i;
     particle* p;
@@ -1144,19 +1157,31 @@ void write(particle* writeevent)
 
     double volume = xsize * ysize * zsize;
     double pressid = (double)N / volume;
-    double pressnow = -(dvtot - dvtotlast) / (3.0 * volume * (simtime - timelast));
-    pressnow += pressid;
-    dvtotlast = dvtot;
+    double pressnowxx = -(dvtotx - dvtotxlast) / (volume * (simtime - timelast));
+    double pressnowyy = -(dvtoty - dvtotylast) / (volume * (simtime - timelast));
+    double pressnowzz = -(dvtotz - dvtotzlast) / (volume * (simtime - timelast));
+    pressnowxx += pressid;
+    pressnowyy += pressid;
+    pressnowzz += pressid;
+    double pressnow = (pressnowxx + pressnowyy + pressnowzz) / 3.0;
+    dvtotxlast = dvtotx;
+    dvtotylast = dvtoty;
+    dvtotzlast = dvtotz;
     timelast = simtime;
-    if (colcounter == 0) pressnow = 0;
+    if (colcounter == 0) {
+        pressnowxx = pressid;
+        pressnowyy = pressid;
+        pressnowzz = pressid;
+        pressnow = pressid;
+    }
 
     double listsize1 = (double)listcounter1 / mergecounter;     //Average number of events in the first event list
     int listsize2 = listcounter2;                               //Number of events in overflow list during last rescheduling (0 if not recently rescheduled)
     if (mergecounter == 0) listsize1 = 0;
     listcounter1 = listcounter2 = mergecounter = 0;
 
-    printf("Simtime: %lf, Collisions: %u, Press: %lf, T: %lf, Listsizes: (%lf, %d), Neigh: %d - %d\n", 
-            simtime, colcounter, pressnow, temperature, listsize1, listsize2, minneigh, maxneigh);
+    printf("Simtime: %lf, Collisions: %u, Pxx: %lf, Pyy: %lf, Pzz: %lf, P_avg: %lf, T: %lf, Listsizes: (%lf, %d), Neigh: %d - %d\n", 
+            simtime, colcounter, pressnowxx, pressnowyy, pressnowzz, pressnow, temperature, listsize1, listsize2, minneigh, maxneigh);
 
     char filename[200];
     if (makesnapshots && simtime - lastsnapshottime > snapshotinterval - 0.001)
@@ -1183,9 +1208,15 @@ void write(particle* writeevent)
     //Print some data to a file
     // sprintf(filename, "press.n%d.v%.4lf.sph", N, xsize * ysize * zsize);
     sprintf(filename, "press_n=%d_eta=%f.sph", N, packfrac);
-    if (counter == 0) file = fopen(filename, "w");
-    else              file = fopen(filename, "a");
-    fprintf(file, "%lf %lf\n", simtime, pressnow);
+    if (counter == 0) {
+        file = fopen(filename, "w");
+        // Header line for clarity
+        fprintf(file, "# time Pxx Pyy Pzz P_avg\n");
+    }
+    else {
+        file = fopen(filename, "a");
+    }
+    fprintf(file, "%lf %lf %lf %lf %lf\n", simtime, pressnowxx, pressnowyy, pressnowzz, pressnow);
     fclose(file);
 
     counter++;
