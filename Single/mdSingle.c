@@ -118,6 +118,12 @@ void arg_parse(int argc, char* argv[]) {
                 }
                 i++;
             }
+
+            // Modify the write interval for pressure output
+            if (strcmp(argv[i], "-writeinterval") == 0) {
+                writeinterval = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
         }
     }
 }
