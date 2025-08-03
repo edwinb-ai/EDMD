@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #define MAXNEIGH 60
 
@@ -24,12 +25,12 @@
 //The code is set up for binary mixtures. The parameters below control the number of particles, size ratio, composition, target packing fraction, etc.
 
 //Number of particles:
-#define N 1200
+#define N 1400
 
 
-double targetpackfrac = 0.6; //Target packing fraction (if too high, simulation will not finish or crash)  
-double composition = 1.0 / 3.0;     //Fraction of large particles
-double sizeratio = 0.51;      //small diameter / large diameter (must be <= 1)
+double targetpackfrac; //Target packing fraction (if too high, simulation will not finish or crash)  
+double composition;     //Fraction of large particles
+double sizeratio;      //small diameter / large diameter (must be <= 1)
 double growthspeed = 0.01;     //Factor determining growth speed (slower growth means higher packing fractions can be reached)
 double thermostatinterval = 0.001;  //Time between applications of thermostat, which gets rid of excess heat generated while growing
 
@@ -95,10 +96,42 @@ int stop = 0;
 
 int usethermostat = 1; //Whether to use a thermostat
 
+/**************************************************
+**                 arg_parse
+** Parse values from the command line for easier
+** scripting, and to avoid re-compilations
+**************************************************/
+void arg_parse(int argc, char* argv[]) {
+    int i;
+    char *p;
+
+    for (i = 1; i < argc; i++) {  
+        if (i + 1 != argc) {
+            // For thermostating
+            if (strcmp(argv[i], "-size-ratio") == 0) {                 
+                sizeratio = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+
+            // Change the packing fraction, eta
+            if (strcmp(argv[i], "-eta") == 0) {                 
+                targetpackfrac = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+
+            // Modify the number of particles
+            if (strcmp(argv[i], "-lcomp") == 0) {                 
+                composition = strtod(argv[i + 1], &p);
+                i++;    // Move to the next flag
+            }
+        }
+    }
+}
 
 
-int main()
+int main(int argc, char* argv[])
 {
+    arg_parse(argc, argv);
     init();
     if (stop) return 1;				//Stop is set to 1 whenever the simulation should stop
     printf("Starting\n");

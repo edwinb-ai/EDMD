@@ -36,12 +36,10 @@ typedef struct sparticle
 	uint8_t type;
 } particle;
 
-int main();
+void arg_parse(int argc, char* argv[]);
+int main(int argc, char* argv[]);
 void printstuff();
 void init();
-void cubicfcc();
-void cubicfcc2();
-void cubicfcc3();
 
 void initeventpool();
 void fcc();

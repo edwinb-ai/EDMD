@@ -8,7 +8,7 @@
 #include "PseudoRNG/pseudorng.h"
 
 //Maximum number of neighbors per particle
-#define MAXNEIGH 60
+#define MAXNEIGH 90
 
 #include "mdSingle.h"
 
@@ -185,17 +185,26 @@ void printstuff(void)
 void init(void)
 {
     int i;
+
+    // Draw a random seed and initialize the PRNG
     unsigned long seed;     //Seed for random number generator
-    FILE *fp=fopen("/dev/urandom","r");
+    FILE *fp = fopen("/dev/urandom", "r");
     int tmp = fread(&seed,1,sizeof(unsigned long),fp);
-    if (tmp != sizeof(unsigned long)) printf ("error with seed\n");
+    if (tmp != sizeof(unsigned long)) {
+        printf("error with seed\n");
+    }
     fclose(fp);
     printf("Seed: %u\n", (int)seed);
     init_genrand(seed);
 
-
-    if (initialconfig == 0) loadparticles();
-    else                    fcc();
+    // Either load the configuration from file or make a FCC
+    if (initialconfig == 0) {
+        loadparticles();
+    }
+    else { 
+        fcc();
+    }
+    
     randommovement();
     hx = 0.5 * xsize; hy = 0.5 * ysize; hz = 0.5 * zsize;	//Values used for periodic boundary conditions
 
@@ -220,9 +229,6 @@ void init(void)
         makeneighborlist(particles + i);
     }
     printf("Done adding collisions\n");
-
-
-
 }
 
 /******************************************************
