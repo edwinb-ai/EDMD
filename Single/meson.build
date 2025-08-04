@@ -3,7 +3,8 @@ project('edmd', 'c',
   default_options: [
     'warning_level=3',
     'optimization=3',
-    'c_std=c11'
+    'c_std=c11',
+    'c_args=-D_GNU_SOURCE'
   ],
   meson_version: '>= 0.56.0'
 )
